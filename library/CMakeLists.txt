@@ -1,0 +1,45 @@
+cmake_minimum_required(VERSION 3.18)
+set(LIB_NAME "llua54")
+set(BUILD_NAME "lua54")
+project(Lua)
+
+if(NOT WIN32 AND NOT ANDROID AND NOT CMAKE_GENERATOR_PLATFORM AND NOT LUA_GENERATOR_PLATFORM)
+	set(LUA_GENERATOR_PLATFORM ${CMAKE_SYSTEM_PROCESSOR})
+elseif(WIN32)
+	set(LUA_GENERATOR_PLATFORM ${CMAKE_GENERATOR_PLATFORM})
+elseif(ANDROID)
+	set(LUA_GENERATOR_PLATFORM ${ANDROID_ABI})
+endif()
+set(LIB_SRC_PATH ${PROJECT_SOURCE_DIR}/..)
+include_directories(${LIB_SRC_PATH} )
+set(LUA_OUTPUT_DIR ${LIB_SRC_PATH}/../bin/${CMAKE_SYSTEM_NAME}/${LUA_GENERATOR_PLATFORM})
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${LUA_OUTPUT_DIR}")
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${LUA_OUTPUT_DIR}")
+set(LIB_LUA ON)
+if(WIN32)
+file(GLOB ALL_RESOURCE_FILES ../lua.ico ../lua_dll.rc)
+message(STATUS "ALL_RESOURCE_FILES: ${ALL_RESOURCE_FILES}")
+source_group("Resource" FILES ${ALL_RESOURCE_FILES})
+endif()
+file(GLOB_RECURSE HEADER_FILES ../*.h ../*.hpp ../*.inl)
+set(SOURCE_FILES ../lapi.c ../lcode.c ../ldebug.c ../ldo.c ../ldump.c ../lfunc.c ../lgc.c ../llex.c 
+../lobject.c ../lopcodes.c ../lparser.c ../lstate.c ../lstring.c ../ltable.c ../ltm.c 
+../lundump.c ../lvm.c ../lzio.c ../lctype.c ../lmem.c ../ltablib.c 
+../lauxlib.c ../lbaselib.c ../ldblib.c ../liolib.c ../lmathlib.c ../loslib.c 
+../lstrlib.c ../loadlib.c ../linit.c ../lcorolib.c ../lutf8lib.c)
+set(CMAKE_SHARED_MODULE_PREFIX "")
+set(CMAKE_STATIC_LIBRARY_PREFIX "")
+set(CMAKE_SHARED_LIBRARY_PREFIX "")
+set(ALL_FILES ${HEADER_FILES} ${SOURCE_FILES})
+add_library(${LIB_NAME} SHARED ${HEADER_FILES} ${SOURCE_FILES} ${ALL_RESOURCE_FILES})
+target_include_directories(${LIB_NAME} PUBLIC ${LIB_INCLUDE_PATH})
+set_target_properties(${LIB_NAME} PROPERTIES OUTPUT_NAME ${BUILD_NAME})
+add_definitions("-DLUA_BUILD_AS_DLL")
+if(NOT WIN32)
+	target_link_libraries(${LIB_NAME} PUBLIC dl m)
+else()
+set_target_properties(${LIB_NAME} PROPERTIES
+LINK_FLAGS_DEBUG "/Pdb:${LUA_OUTPUT_DIR}/Debug/liblua54.pdb"
+LINK_FLAGS_RELWITHDEBINFO "/Pdb:${LUA_OUTPUT_DIR}/RelWithDebInfo/liblua54.pdb"
+)
+endif()

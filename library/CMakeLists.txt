@@ -38,6 +38,7 @@ add_definitions("-DLUA_BUILD_AS_DLL")
 if(NOT WIN32)
 	target_link_libraries(${LIB_NAME} PUBLIC dl m)
 else()
+	add_definitions("-DLUA_USE_DLOPEN")
 set_target_properties(${LIB_NAME} PROPERTIES
 LINK_FLAGS_DEBUG "/Pdb:${LUA_OUTPUT_DIR}/Debug/liblua54.pdb"
 LINK_FLAGS_RELWITHDEBINFO "/Pdb:${LUA_OUTPUT_DIR}/RelWithDebInfo/liblua54.pdb"

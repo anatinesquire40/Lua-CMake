@@ -15,11 +15,7 @@ Each component has its own `CMakeLists.txt` file to manage the build process.
 ### Build Process:
 1. **Clone the Repository**
    
-   Clone this repository into the following directory path:
-   ```plaintext
-   lua-src(from lua.org)/src
-   ```
-
+     Clone this repository into the `src` folder inside the `lua-src` directory (from lua.org).
 2. **Building the Project**
 
     Inside the project, you’ll find a directory called `build-all`. This folder contains the necessary build files for all components, so you can build them without needing to run the build process separately for each one.

@@ -9,6 +9,8 @@ elseif(WIN32)
 	set(LUA_GENERATOR_PLATFORM ${CMAKE_GENERATOR_PLATFORM})
 elseif(ANDROID)
 	set(LUA_GENERATOR_PLATFORM ${ANDROID_ABI})
+	add_definitions("-DLUA_USE_DLOPEN")
+	add_definitions("-DLUA_USE_POSIX")
 endif()
 set(LIB_SRC_PATH ${PROJECT_SOURCE_DIR}/..)
 include_directories(${LIB_SRC_PATH} )
@@ -35,10 +37,12 @@ add_library(${LIB_NAME} SHARED ${HEADER_FILES} ${SOURCE_FILES} ${ALL_RESOURCE_FI
 target_include_directories(${LIB_NAME} PUBLIC ${LIB_INCLUDE_PATH})
 set_target_properties(${LIB_NAME} PROPERTIES OUTPUT_NAME ${BUILD_NAME})
 add_definitions("-DLUA_BUILD_AS_DLL")
+if(UNIX AND NOT APPLE AND NOT ANDROID)
+    add_definitions("-DLUA_USE_LINUX")
+endif()
 if(NOT WIN32)
 	target_link_libraries(${LIB_NAME} PUBLIC dl m)
 else()
-	add_definitions("-DLUA_USE_DLOPEN")
 set_target_properties(${LIB_NAME} PROPERTIES
 LINK_FLAGS_DEBUG "/Pdb:${LUA_OUTPUT_DIR}/Debug/liblua54.pdb"
 LINK_FLAGS_RELWITHDEBINFO "/Pdb:${LUA_OUTPUT_DIR}/RelWithDebInfo/liblua54.pdb"

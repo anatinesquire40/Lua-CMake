@@ -1,50 +1,134 @@
 cmake_minimum_required(VERSION 3.18)
-set(LIB_NAME "llua54")
-set(BUILD_NAME "lua54")
+if(NOT LUA_VERSION AND NOT DISABLE_VERSION_POSTFIX)
+    message(FATAL_ERROR "LUA_VERSION is not defined. Please specify it using -DLUA_VERSION=<version> (e.g., -DLUA_VERSION=54) or define -DDISABLE_VERSION_POSTFIX to disable version-specific behavior.")
+endif()
+if(NOT LUA_BUILD_NAME)
+    message(WARNING "LUA_BUILD_NAME is not defined. Using default value: 'lua'.")
+    set(LUA_BUILD_NAME "lua")
+endif()
+if(NOT LUA_LIBRARY_BUILD_NAME)
+    message(WARNING "LUA_LIBRARY_BUILD_NAME is not defined. Using default value: '${LUA_BUILD_NAME}${LUA_VERSION}'.")
+    set(LUA_LIBRARY_BUILD_NAME "${LUA_BUILD_NAME}${LUA_VERSION}")
+endif()
+set(DYNAMIC_LIB_NAME "lib${LUA_BUILD_NAME}${LUA_VERSION}_dynamic")
+set(STATIC_LIB_NAME "lib${LUA_BUILD_NAME}${LUA_VERSION}_static")
 project(Lua)
-
-if(NOT WIN32 AND NOT ANDROID AND NOT CMAKE_GENERATOR_PLATFORM AND NOT LUA_GENERATOR_PLATFORM)
+if(NOT ANDROID AND NOT CMAKE_GENERATOR_PLATFORM AND NOT LUA_GENERATOR_PLATFORM)
 	set(LUA_GENERATOR_PLATFORM ${CMAKE_SYSTEM_PROCESSOR})
-elseif(WIN32)
+elseif(MSVC AND CMAKE_GENERATOR_PLATFORM)
 	set(LUA_GENERATOR_PLATFORM ${CMAKE_GENERATOR_PLATFORM})
 elseif(ANDROID)
 	set(LUA_GENERATOR_PLATFORM ${ANDROID_ABI})
-	add_definitions("-DLUA_USE_DLOPEN")
-	add_definitions("-DLUA_USE_POSIX")
 endif()
 set(LIB_SRC_PATH ${PROJECT_SOURCE_DIR}/..)
 include_directories(${LIB_SRC_PATH} )
 set(LUA_OUTPUT_DIR ${LIB_SRC_PATH}/../bin/${CMAKE_SYSTEM_NAME}/${LUA_GENERATOR_PLATFORM})
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${LUA_OUTPUT_DIR}")
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${LUA_OUTPUT_DIR}")
+set(LUA_LIBRARY_SHARED_DIR ${LIB_SRC_PATH}/../lib/${CMAKE_SYSTEM_NAME}/${LUA_GENERATOR_PLATFORM}/$<CONFIG>/Dynamic)
+set(LUA_LIBRARY_STATIC_DIR ${LIB_SRC_PATH}/../lib/${CMAKE_SYSTEM_NAME}/${LUA_GENERATOR_PLATFORM}/$<CONFIG>/Static)
 set(LIB_LUA ON)
-if(WIN32)
+if(MSVC)
 file(GLOB ALL_RESOURCE_FILES ../lua.ico ../lua_dll.rc)
 message(STATUS "ALL_RESOURCE_FILES: ${ALL_RESOURCE_FILES}")
 source_group("Resource" FILES ${ALL_RESOURCE_FILES})
 endif()
 file(GLOB_RECURSE HEADER_FILES ../*.h ../*.hpp ../*.inl)
-set(SOURCE_FILES ../lapi.c ../lcode.c ../ldebug.c ../ldo.c ../ldump.c ../lfunc.c ../lgc.c ../llex.c 
-../lobject.c ../lopcodes.c ../lparser.c ../lstate.c ../lstring.c ../ltable.c ../ltm.c 
-../lundump.c ../lvm.c ../lzio.c ../lctype.c ../lmem.c ../ltablib.c 
-../lauxlib.c ../lbaselib.c ../ldblib.c ../liolib.c ../lmathlib.c ../loslib.c 
-../lstrlib.c ../loadlib.c ../linit.c ../lcorolib.c ../lutf8lib.c)
+file(GLOB_RECURSE SOURCE_FILES ../*.c)
+list(FILTER SOURCE_FILES EXCLUDE REGEX ".*(lua\\.c|luac\\.c|wmain\\.c|CMakeCCompilerId\\.c|main\\.c)$")
 set(CMAKE_SHARED_MODULE_PREFIX "")
 set(CMAKE_STATIC_LIBRARY_PREFIX "")
 set(CMAKE_SHARED_LIBRARY_PREFIX "")
 set(ALL_FILES ${HEADER_FILES} ${SOURCE_FILES})
-add_library(${LIB_NAME} SHARED ${HEADER_FILES} ${SOURCE_FILES} ${ALL_RESOURCE_FILES})
-target_include_directories(${LIB_NAME} PUBLIC ${LIB_INCLUDE_PATH})
-set_target_properties(${LIB_NAME} PROPERTIES OUTPUT_NAME ${BUILD_NAME})
-add_definitions("-DLUA_BUILD_AS_DLL")
+add_library(${DYNAMIC_LIB_NAME} SHARED ${HEADER_FILES} ${SOURCE_FILES} ${ALL_RESOURCE_FILES})
+add_library(${STATIC_LIB_NAME} STATIC ${HEADER_FILES} ${SOURCE_FILES} ${ALL_RESOURCE_FILES})
+if(MSVC)
+file(MAKE_DIRECTORY ${LIB_SRC_PATH}/../lib/${CMAKE_SYSTEM_NAME}/${LUA_GENERATOR_PLATFORM}/Release/Dynamic)
+file(MAKE_DIRECTORY ${LIB_SRC_PATH}/../lib/${CMAKE_SYSTEM_NAME}/${LUA_GENERATOR_PLATFORM}/Debug/Dynamic)
+file(MAKE_DIRECTORY ${LIB_SRC_PATH}/../lib/${CMAKE_SYSTEM_NAME}/${LUA_GENERATOR_PLATFORM}/RelWithDebInfo/Dynamic)
+file(MAKE_DIRECTORY ${LIB_SRC_PATH}/../lib/${CMAKE_SYSTEM_NAME}/${LUA_GENERATOR_PLATFORM}/MinSizeRel/Dynamic)
+file(MAKE_DIRECTORY ${LIB_SRC_PATH}/../lib/${CMAKE_SYSTEM_NAME}/${LUA_GENERATOR_PLATFORM}/Release/Static)
+file(MAKE_DIRECTORY ${LIB_SRC_PATH}/../lib/${CMAKE_SYSTEM_NAME}/${LUA_GENERATOR_PLATFORM}/Debug/Static)
+file(MAKE_DIRECTORY ${LIB_SRC_PATH}/../lib/${CMAKE_SYSTEM_NAME}/${LUA_GENERATOR_PLATFORM}/RelWithDebInfo/Static)
+file(MAKE_DIRECTORY ${LIB_SRC_PATH}/../lib/${CMAKE_SYSTEM_NAME}/${LUA_GENERATOR_PLATFORM}/MinSizeRel/Static)
+else()
+file(MAKE_DIRECTORY ${LIB_SRC_PATH}/../lib/${CMAKE_SYSTEM_NAME}/${LUA_GENERATOR_PLATFORM}/Static)
+file(MAKE_DIRECTORY ${LIB_SRC_PATH}/../lib/${CMAKE_SYSTEM_NAME}/${LUA_GENERATOR_PLATFORM}/Dynamic)
+endif()
+set_target_properties(${DYNAMIC_LIB_NAME} PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${LUA_OUTPUT_DIR}"
+    LIBRARY_OUTPUT_DIRECTORY "${LUA_OUTPUT_DIR}"
+	OUTPUT_NAME ${LUA_LIBRARY_BUILD_NAME}
+)
+set_target_properties(${STATIC_LIB_NAME} PROPERTIES
+    ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/${SUBDIRLIBNAME}/Static"
+	OUTPUT_NAME ${LUA_LIBRARY_BUILD_NAME}
+)
+set(m_config $<CONFIG>)
+if(CMAKE_GENERATOR MATCHES "NMake")
+	set(m_config "")
+endif()
+if (MSVC)
+add_custom_command(
+		TARGET ${DYNAMIC_LIB_NAME} 
+		POST_BUILD 
+		COMMAND ${CMAKE_COMMAND} -E copy_if_different 
+		"${LUA_OUTPUT_DIR}/${m_config}/${LUA_LIBRARY_BUILD_NAME}.dll"
+		"${CMAKE_BINARY_DIR}/${SUBDIRLIBNAME}/${m_config}/${LUA_LIBRARY_BUILD_NAME}.lib"
+		"${LUA_LIBRARY_SHARED_DIR}/"
+	)
+add_custom_command(
+		TARGET ${STATIC_LIB_NAME} 
+		POST_BUILD 
+		COMMAND ${CMAKE_COMMAND} -E copy_if_different 
+		"${CMAKE_BINARY_DIR}/${SUBDIRLIBNAME}/Static/${m_config}/${LUA_LIBRARY_BUILD_NAME}.lib"
+		"${LUA_LIBRARY_STATIC_DIR}/"
+	)
+elseif(WIN32 AND CMAKE_COMPILER_IS_GNUCXX)
+add_custom_command(
+		TARGET ${STATIC_LIB_NAME} 
+		POST_BUILD 
+		COMMAND ${CMAKE_COMMAND} -E copy_if_different 
+		"${CMAKE_BINARY_DIR}/${SUBDIRLIBNAME}/Static/${LUA_LIBRARY_BUILD_NAME}.a"
+		"${LUA_LIBRARY_STATIC_DIR}/"
+	)
+add_custom_command(
+		TARGET ${DYNAMIC_LIB_NAME} 
+		POST_BUILD 
+		COMMAND ${CMAKE_COMMAND} -E copy_if_different 
+		"${LUA_OUTPUT_DIR}/${LUA_LIBRARY_BUILD_NAME}.dll"
+		"${CMAKE_BINARY_DIR}/${SUBDIRLIBNAME}/lib${LUA_LIBRARY_BUILD_NAME}.dll.a"
+		"${LUA_LIBRARY_SHARED_DIR}/"
+	)
+else()
+	add_custom_command(
+		TARGET ${STATIC_LIB_NAME} 
+		POST_BUILD 
+		COMMAND ${CMAKE_COMMAND} -E copy_if_different 
+		"${CMAKE_BINARY_DIR}/${SUBDIRLIBNAME}/Static/${LUA_LIBRARY_BUILD_NAME}.a"
+		"${LUA_LIBRARY_STATIC_DIR}/"
+	)
+	add_custom_command(
+		TARGET ${DYNAMIC_LIB_NAME} 
+		POST_BUILD 
+		COMMAND ${CMAKE_COMMAND} -E copy_if_different 
+		"${LUA_OUTPUT_DIR}/${LUA_LIBRARY_BUILD_NAME}.so"
+		"${LUA_LIBRARY_SHARED_DIR}/"
+	)
+endif()
+target_include_directories(${DYNAMIC_LIB_NAME} PUBLIC ${LIB_INCLUDE_PATH})
+target_compile_definitions(${DYNAMIC_LIB_NAME} PRIVATE LUA_BUILD_AS_DLL)
 if(UNIX AND NOT APPLE AND NOT ANDROID)
     add_definitions("-DLUA_USE_LINUX")
 endif()
 if(NOT WIN32)
-	target_link_libraries(${LIB_NAME} PUBLIC dl m)
-else()
-set_target_properties(${LIB_NAME} PROPERTIES
-LINK_FLAGS_DEBUG "/Pdb:${LUA_OUTPUT_DIR}/Debug/liblua54.pdb"
-LINK_FLAGS_RELWITHDEBINFO "/Pdb:${LUA_OUTPUT_DIR}/RelWithDebInfo/liblua54.pdb"
+	target_link_libraries(${DYNAMIC_LIB_NAME} PUBLIC dl m)
+endif()
+if(MSVC)
+set_target_properties(${DYNAMIC_LIB_NAME} PROPERTIES
+    PDB_NAME "lib${LUA_LIBRARY_BUILD_NAME}_dynamic"
+    PDB_OUTPUT_DIRECTORY "${LUA_OUTPUT_DIR}/${m_config}"
+)
+set_target_properties(${STATIC_LIB_NAME} PROPERTIES
+    COMPILE_PDB_NAME "lib${LUA_LIBRARY_BUILD_NAME}_static"
+    COMPILE_PDB_OUTPUT_DIRECTORY "${LUA_OUTPUT_DIR}/${m_config}"
 )
 endif()
